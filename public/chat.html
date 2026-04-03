@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodePilot | AI Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">CodePilot</div>
+      <nav class="main-nav">
+        <a href="/index.html">Home</a>
+        <a href="/student.html">Student</a>
+        <a href="/lesson.html">Lesson</a>
+        <a href="/chat.html" class="active">AI Chat</a>
+        <a href="/manager.html">Manager</a>
+      </nav>
+    </header>
+
+    <main class="container reveal">
+      <section class="card">
+        <h1>AI Chat Assistant</h1>
+        <p>Session-based support tied to user, lesson, and knowledge base entries.</p>
+      </section>
+
+      <section class="grid two-col">
+        <article class="card">
+          <h2>Sessions</h2>
+          <ul id="chat-session-list" class="list"></ul>
+        </article>
+        <article class="card chat-window">
+          <h2>Message Thread</h2>
+          <div class="mock-panel">
+            <p><strong>Student:</strong> What is a variable?</p>
+            <p><strong>AI:</strong> It is a named storage location in memory.</p>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+  </body>
+</html>

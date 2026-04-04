@@ -30,6 +30,21 @@ if (!DB_PASS) {
   console.warn("[CodePilot] DB_PASS is empty. If your MySQL user requires a password, set it in .env.");
 }
 
+async function withTransaction(work) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const result = await work(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+}
+
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "codepilot-frontend" });
 });
@@ -87,9 +102,20 @@ app.put("/api/users/:id", async (req, res) => {
 app.delete("/api/users/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const conn = await pool.getConnection();
-    await conn.query("DELETE FROM User WHERE userID=?", [id]);
-    conn.release();
+    await withTransaction(async (conn) => {
+      const [sessions] = await conn.query("SELECT sessionID FROM AIChatSession WHERE userID=?", [id]);
+      const sessionIds = sessions.map((session) => session.sessionID);
+
+      if (sessionIds.length > 0) {
+        await conn.query("DELETE FROM ChatMessage WHERE sessionID IN (?)", [sessionIds]);
+        await conn.query("DELETE FROM AIChatSession WHERE userID=?", [id]);
+      }
+
+      await conn.query("DELETE FROM ContentFlag WHERE userID=?", [id]);
+      await conn.query("DELETE FROM UserEnrollment WHERE userID=?", [id]);
+      await conn.query("DELETE FROM ProgressRecord WHERE userID=?", [id]);
+      await conn.query("DELETE FROM User WHERE userID=?", [id]);
+    });
     res.json({ success: true, message: "User deleted" });
   } catch (err) {
     console.error("DELETE /api/users:", err);
@@ -150,9 +176,31 @@ app.put("/api/learning-paths/:id", async (req, res) => {
 app.delete("/api/learning-paths/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const conn = await pool.getConnection();
-    await conn.query("DELETE FROM LearningPath WHERE pathID=?", [id]);
-    conn.release();
+    await withTransaction(async (conn) => {
+      const [lessons] = await conn.query("SELECT lessonID FROM Lesson WHERE pathID=?", [id]);
+      const lessonIds = lessons.map((lesson) => lesson.lessonID);
+
+      if (lessonIds.length > 0) {
+        const [sessions] = await conn.query(
+          "SELECT sessionID FROM AIChatSession WHERE lessonID IN (?)",
+          [lessonIds]
+        );
+        const sessionIds = sessions.map((session) => session.sessionID);
+
+        if (sessionIds.length > 0) {
+          await conn.query("DELETE FROM ChatMessage WHERE sessionID IN (?)", [sessionIds]);
+          await conn.query("DELETE FROM AIChatSession WHERE sessionID IN (?)", [sessionIds]);
+        }
+
+        await conn.query("DELETE FROM PracticeCodingChallenge WHERE lessonID IN (?)", [lessonIds]);
+        await conn.query("DELETE FROM Quiz WHERE lessonID IN (?)", [lessonIds]);
+        await conn.query("DELETE FROM ProgressRecord WHERE lessonID IN (?)", [lessonIds]);
+        await conn.query("DELETE FROM Lesson WHERE lessonID IN (?)", [lessonIds]);
+      }
+
+      await conn.query("DELETE FROM UserEnrollment WHERE pathID=?", [id]);
+      await conn.query("DELETE FROM LearningPath WHERE pathID=?", [id]);
+    });
     res.json({ success: true, message: "Learning path deleted" });
   } catch (err) {
     console.error("DELETE /api/learning-paths:", err);
@@ -213,9 +261,20 @@ app.put("/api/lessons/:id", async (req, res) => {
 app.delete("/api/lessons/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const conn = await pool.getConnection();
-    await conn.query("DELETE FROM Lesson WHERE lessonID=?", [id]);
-    conn.release();
+    await withTransaction(async (conn) => {
+      const [sessions] = await conn.query("SELECT sessionID FROM AIChatSession WHERE lessonID=?", [id]);
+      const sessionIds = sessions.map((session) => session.sessionID);
+
+      if (sessionIds.length > 0) {
+        await conn.query("DELETE FROM ChatMessage WHERE sessionID IN (?)", [sessionIds]);
+        await conn.query("DELETE FROM AIChatSession WHERE lessonID=?", [id]);
+      }
+
+      await conn.query("DELETE FROM PracticeCodingChallenge WHERE lessonID=?", [id]);
+      await conn.query("DELETE FROM Quiz WHERE lessonID=?", [id]);
+      await conn.query("DELETE FROM ProgressRecord WHERE lessonID=?", [id]);
+      await conn.query("DELETE FROM Lesson WHERE lessonID=?", [id]);
+    });
     res.json({ success: true, message: "Lesson deleted" });
   } catch (err) {
     console.error("DELETE /api/lessons:", err);

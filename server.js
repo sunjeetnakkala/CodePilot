@@ -327,6 +327,57 @@ app.put("/api/moderation/flags/:id", async (req, res) => {
   }
 });
 
+// ===== REPORTS (joins / aggregation) =====
+
+app.get("/api/reports/student-progress", async (_req, res) => {
+  try {
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query(
+      `SELECT u.email AS studentEmail,
+              lp.pathName AS learningPath,
+              l.title AS lessonTitle,
+              pr.attempts,
+              pr.timeSpent,
+              pr.score,
+              CASE
+                WHEN pr.score IS NULL THEN 'No score yet'
+                WHEN pr.score >= 80 THEN 'Strong'
+                WHEN pr.score >= 60 THEN 'Developing'
+                ELSE 'Needs support'
+              END AS progressLabel
+       FROM ProgressRecord pr
+       INNER JOIN User u ON u.userID = pr.userID
+       INNER JOIN Lesson l ON l.lessonID = pr.lessonID
+       INNER JOIN LearningPath lp ON lp.pathID = l.pathID
+       ORDER BY u.email, lp.pathName, l.title`
+    );
+    conn.release();
+    res.json(rows);
+  } catch (err) {
+    console.error("GET /api/reports/student-progress:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/reports/path-enrollment", async (_req, res) => {
+  try {
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query(
+      `SELECT lp.pathName,
+              COUNT(ue.enrollmentID) AS enrolledStudents
+       FROM LearningPath lp
+       LEFT JOIN UserEnrollment ue ON ue.pathID = lp.pathID
+       GROUP BY lp.pathID, lp.pathName
+       ORDER BY enrolledStudents DESC, lp.pathName`
+    );
+    conn.release();
+    res.json(rows);
+  } catch (err) {
+    console.error("GET /api/reports/path-enrollment:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("*", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });

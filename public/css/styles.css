@@ -342,6 +342,25 @@ body {
   }
 }
 
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.report-table th,
+.report-table td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.report-table th {
+  background: rgba(15, 118, 110, 0.08);
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .two-col,
   .three-col {

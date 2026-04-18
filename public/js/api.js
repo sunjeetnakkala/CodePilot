@@ -74,5 +74,9 @@ window.codePilotApi = {
 
   // Moderation Flags
   getFlags: () => getJson("/api/moderation/flags"),
-  updateFlag: (id, data) => putJson(`/api/moderation/flags/${id}`, data)
+  updateFlag: (id, data) => putJson(`/api/moderation/flags/${id}`, data),
+
+  // Reports
+  getStudentProgressReport: () => getJson("/api/reports/student-progress"),
+  getPathEnrollmentReport: () => getJson("/api/reports/path-enrollment")
 };

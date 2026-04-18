@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodePilot | Reports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">CodePilot</div>
+      <nav class="main-nav">
+        <a href="/index.html">Home</a>
+        <a href="/student.html">Student</a>
+        <a href="/lesson.html">Lesson</a>
+        <a href="/chat.html">AI Chat</a>
+        <a href="/reports.html" class="active">Reports</a>
+        <a href="/manager.html">Manager</a>
+      </nav>
+    </header>
+
+    <main class="container reveal">
+      <section class="card">
+        <h1>Data reports</h1>
+        <p id="report-error" class="message error hidden"></p>
+        <p class="muted">
+          Summaries from the database (joins and aggregation). Use for your assignment write-up: what
+          each report shows and why it is useful for instructors or managers.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Report 1: Student progress</h2>
+        <p class="muted">Student email, path, lesson, attempts, time, score, and a simple progress label.</p>
+        <div style="overflow-x: auto">
+          <table class="report-table" id="progress-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Path</th>
+                <th>Lesson</th>
+                <th>Attempts</th>
+                <th>Time (min)</th>
+                <th>Score</th>
+                <th>Progress</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Report 2: Learning path enrollment</h2>
+        <p class="muted">How many enrollments each path has (popular vs unused content).</p>
+        <div style="overflow-x: auto">
+          <table class="report-table" id="enrollment-table">
+            <thead>
+              <tr>
+                <th>Learning path</th>
+                <th>Enrolled students</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/reports.js"></script>
+  </body>
+</html>

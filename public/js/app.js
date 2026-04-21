@@ -20,10 +20,45 @@ function renderList(el, items, htmlMapper) {
 function syncAuthNav() {
   const loggedIn = Boolean(localStorage.getItem("token") || localStorage.getItem("user"));
   const logoutLinks = document.querySelectorAll('a[href="/logout.html"]');
+  const dashboardLinks = document.querySelectorAll(
+    'a[href="/student.html"], a[href="/lesson.html"], a[href="/chat.html"], a[href="/reports.html"], a[href="/manager.html"]'
+  );
+  const loginLinks = document.querySelectorAll('a[href="/login.html"]');
+  const signupLinks = document.querySelectorAll('a[href="/signup.html"]');
 
   logoutLinks.forEach((link) => {
     link.hidden = !loggedIn;
   });
+
+  dashboardLinks.forEach((link) => {
+    link.hidden = loggedIn;
+  });
+
+  loginLinks.forEach((link) => {
+    link.hidden = loggedIn;
+  });
+
+  signupLinks.forEach((link) => {
+    link.hidden = loggedIn;
+  });
+}
+
+function enforceSignedInRestrictions() {
+  const loggedIn = Boolean(localStorage.getItem("token") || localStorage.getItem("user"));
+  const blockedPages = new Set([
+    "/student.html",
+    "/lesson.html",
+    "/chat.html",
+    "/reports.html",
+    "/manager.html"
+  ]);
+
+  if (loggedIn && blockedPages.has(window.location.pathname)) {
+    window.location.replace("/index.html");
+    return true;
+  }
+
+  return false;
 }
 
 async function bootstrapStudentPage() {
@@ -97,6 +132,7 @@ async function bootstrapManagerPage() {
 async function init() {
   try {
     syncAuthNav();
+    if (enforceSignedInRestrictions()) return;
     await Promise.all([
       bootstrapStudentPage(),
       bootstrapLessonPage(),

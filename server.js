@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const mysql = require("mysql2/promise");
+const bcrypt = require("bcrypt");
 require("dotenv").config();
 
 const app = express();
@@ -69,10 +70,11 @@ app.post("/api/users", async (req, res) => {
     return res.status(400).json({ error: "email, password, and role required" });
   }
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
     const conn = await pool.getConnection();
     await conn.query(
       "INSERT INTO User (email, password, role, skillLevel, preferredLanguage) VALUES (?, ?, ?, ?, ?)",
-      [email, password, role, skillLevel || null, preferredLanguage || null]
+      [email, hashedPassword, role, skillLevel || null, preferredLanguage || null]
     );
     conn.release();
     res.json({ success: true, message: "User created" });
@@ -86,10 +88,11 @@ app.put("/api/users/:id", async (req, res) => {
   const { id } = req.params;
   const { email, password, role, skillLevel, preferredLanguage } = req.body;
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
     const conn = await pool.getConnection();
     await conn.query(
       "UPDATE User SET email=?, password=?, role=?, skillLevel=?, preferredLanguage=? WHERE userID=?",
-      [email, password, role, skillLevel || null, preferredLanguage || null, id]
+      [email, hashedPassword, role, skillLevel || null, preferredLanguage || null, id]
     );
     conn.release();
     res.json({ success: true, message: "User updated" });

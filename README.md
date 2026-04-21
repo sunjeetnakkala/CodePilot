@@ -35,7 +35,7 @@ CodePilot/
 		chat.html              - AI chat sessions view
 		manager.html           - Content moderation console (update status)
 	server.js                  - Express server with MySQL CRUD endpoints
-	package.json               - Dependencies (express, mysql2)
+	package.json               - Dependencies (express, mysql2, bcrypt)
 	.gitignore
 ```
 

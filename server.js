@@ -50,6 +50,45 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "codepilot-frontend" });
 });
 
+// ===== AUTHENTICATION =====
+
+app.post("/api/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "email and password required" });
+  }
+  try {
+    const conn = await pool.getConnection();
+    const [users] = await conn.query("SELECT userID, email, password, role FROM User WHERE email=?", [email]);
+    conn.release();
+
+    if (users.length === 0) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const user = users[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Login successful
+    res.json({
+      success: true,
+      message: "Login successful",
+      user: {
+        userID: user.userID,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    console.error("POST /api/login:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== USERS ENDPOINTS =====
 
 app.get("/api/users", async (_req, res) => {

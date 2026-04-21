@@ -17,6 +17,15 @@ function renderList(el, items, htmlMapper) {
   el.innerHTML = items.map((item) => `<li>${htmlMapper(item)}</li>`).join("");
 }
 
+function syncAuthNav() {
+  const loggedIn = Boolean(localStorage.getItem("token") || localStorage.getItem("user"));
+  const logoutLinks = document.querySelectorAll('a[href="/logout.html"]');
+
+  logoutLinks.forEach((link) => {
+    link.hidden = !loggedIn;
+  });
+}
+
 async function bootstrapStudentPage() {
   const overviewEl = document.getElementById("overview");
   const pathListEl = document.getElementById("path-list");
@@ -87,6 +96,7 @@ async function bootstrapManagerPage() {
 
 async function init() {
   try {
+    syncAuthNav();
     await Promise.all([
       bootstrapStudentPage(),
       bootstrapLessonPage(),

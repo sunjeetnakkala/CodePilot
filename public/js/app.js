@@ -26,21 +26,10 @@ function syncAuthNav() {
   const loginLinks = document.querySelectorAll('a[href="/login.html"]');
   const signupLinks = document.querySelectorAll('a[href="/signup.html"]');
 
-  logoutLinks.forEach((link) => {
-    link.hidden = !loggedIn;
-  });
-
-  dashboardLinks.forEach((link) => {
-    link.hidden = loggedIn;
-  });
-
-  loginLinks.forEach((link) => {
-    link.hidden = loggedIn;
-  });
-
-  signupLinks.forEach((link) => {
-    link.hidden = loggedIn;
-  });
+  logoutLinks.forEach((link) => { link.hidden = !loggedIn; });
+  dashboardLinks.forEach((link) => { link.hidden = !loggedIn; });
+  loginLinks.forEach((link) => { link.hidden = loggedIn; });
+  signupLinks.forEach((link) => { link.hidden = loggedIn; });
 }
 
 function enforceSignedInRestrictions() {
@@ -53,7 +42,7 @@ function enforceSignedInRestrictions() {
     "/manager.html"
   ]);
 
-  if (loggedIn && blockedPages.has(window.location.pathname)) {
+  if (!loggedIn && blockedPages.has(window.location.pathname)) {
     window.location.replace("/index.html");
     return true;
   }

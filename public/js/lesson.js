@@ -18,6 +18,10 @@ function hideMessage(elementId) {
 let editingPathId = null;
 let editingLessonId = null;
 
+function canManageLessons() {
+  return typeof getCurrentRole === "function" && getCurrentRole() === "ADMIN";
+}
+
 // ===== LEARNING PATHS =====
 
 async function loadPaths() {
@@ -33,6 +37,7 @@ async function loadPaths() {
 function renderPathList(paths) {
   const listEl = document.getElementById("path-list");
   if (!listEl) return;
+  const canManage = canManageLessons();
 
   listEl.innerHTML = paths
     .map(
@@ -41,7 +46,7 @@ function renderPathList(paths) {
           <strong>${path.pathName}</strong>
           <div class="meta">ID: ${path.pathID} | Difficulty: ${path.difficulty || "N/A"}</div>
           <div class="meta">${path.estimatedHours || "?"} hours | ${path.description || ""}</div>
-          <div class="actions">
+          <div class="actions"${canManage ? "" : ' hidden'}>
             <button class="btn btn-ghost" onclick="editPath(${path.pathID})">Edit</button>
             <button class="btn btn-danger" onclick="deletePathHandler(${path.pathID})">Delete</button>
           </div>
@@ -52,6 +57,8 @@ function renderPathList(paths) {
 }
 
 function editPath(pathId) {
+  if (!canManageLessons()) return;
+
   window.codePilotApi
     .getLearningPaths()
     .then((paths) => {
@@ -71,6 +78,8 @@ function editPath(pathId) {
 }
 
 async function deletePathHandler(pathId) {
+  if (!canManageLessons()) return;
+
   if (!confirm(`Delete path ${pathId}?`)) return;
 
   try {
@@ -97,6 +106,7 @@ async function loadLessons() {
 function renderLessonList(lessons) {
   const listEl = document.getElementById("lesson-list");
   if (!listEl) return;
+  const canManage = canManageLessons();
 
   listEl.innerHTML = lessons
     .map(
@@ -105,7 +115,7 @@ function renderLessonList(lessons) {
           <strong>${lesson.title}</strong>
           <div class="meta">ID: ${lesson.lessonID} | Path ID: ${lesson.pathID}</div>
           <div>${lesson.content ? lesson.content.substring(0, 100) : "No content"}</div>
-          <div class="actions">
+          <div class="actions"${canManage ? "" : ' hidden'}>
             <button class="btn btn-ghost" onclick="editLesson(${lesson.lessonID})">Edit</button>
             <button class="btn btn-danger" onclick="deleteLessonHandler(${lesson.lessonID})">Delete</button>
           </div>
@@ -116,6 +126,8 @@ function renderLessonList(lessons) {
 }
 
 function editLesson(lessonId) {
+  if (!canManageLessons()) return;
+
   window.codePilotApi
     .getLessons()
     .then((lessons) => {
@@ -134,6 +146,8 @@ function editLesson(lessonId) {
 }
 
 async function deleteLessonHandler(lessonId) {
+  if (!canManageLessons()) return;
+
   if (!confirm(`Delete lesson ${lessonId}?`)) return;
 
   try {
@@ -146,6 +160,8 @@ async function deleteLessonHandler(lessonId) {
 }
 
 async function populatePathSelect() {
+  if (!canManageLessons()) return;
+
   try {
     const paths = await window.codePilotApi.getLearningPaths();
     const select = document.getElementById("form-lessonPathID");
@@ -172,9 +188,17 @@ async function initLessonPage() {
   const cancelLessonBtn = document.getElementById("cancel-lesson-btn");
   const refreshPathsBtn = document.getElementById("refresh-paths-btn");
   const refreshLessonsBtn = document.getElementById("refresh-lessons-btn");
+  const canManage = canManageLessons();
+
+  if (!canManage) {
+    if (togglePathBtn) togglePathBtn.hidden = true;
+    if (toggleLessonBtn) toggleLessonBtn.hidden = true;
+    if (pathForm) pathForm.closest("section.card").hidden = true;
+    if (lessonForm) lessonForm.closest("section.card").hidden = true;
+  }
 
   // Path toggle
-  if (togglePathBtn) {
+  if (togglePathBtn && canManage) {
     togglePathBtn.addEventListener("click", () => {
       if (pathForm.style.display === "none") {
         editingPathId = null;
@@ -192,14 +216,14 @@ async function initLessonPage() {
     });
   }
 
-  if (cancelPathBtn) {
+  if (cancelPathBtn && canManage) {
     cancelPathBtn.addEventListener("click", () => {
       pathForm.style.display = "none";
       hideMessage("path-message");
     });
   }
 
-  if (pathForm) {
+  if (pathForm && canManage) {
     pathForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const pathName = document.getElementById("form-pathName").value;
@@ -235,7 +259,7 @@ async function initLessonPage() {
   }
 
   // Lesson toggle
-  if (toggleLessonBtn) {
+  if (toggleLessonBtn && canManage) {
     toggleLessonBtn.addEventListener("click", () => {
       if (lessonForm.style.display === "none") {
         editingLessonId = null;
@@ -252,14 +276,14 @@ async function initLessonPage() {
     });
   }
 
-  if (cancelLessonBtn) {
+  if (cancelLessonBtn && canManage) {
     cancelLessonBtn.addEventListener("click", () => {
       lessonForm.style.display = "none";
       hideMessage("lesson-message");
     });
   }
 
-  if (lessonForm) {
+  if (lessonForm && canManage) {
     lessonForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const pathID = parseInt(document.getElementById("form-lessonPathID").value);

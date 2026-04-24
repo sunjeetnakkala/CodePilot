@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodePilot | Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <style>
+      .profile-card {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+
+      .profile-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .profile-meta {
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">CodePilot</div>
+      <nav class="main-nav">
+        <a href="/index.html">Home</a>
+        <a href="/student.html">Users</a>
+        <a href="/lesson.html">Lesson</a>
+        <a href="/chat.html">AI Chat</a>
+        <a href="/reports.html">Reports</a>
+        <a href="/manager.html">Manager</a>
+        <a href="/profile.html" class="active">Profile</a>
+        <a href="/logout.html">Logout</a>
+      </nav>
+    </header>
+
+    <main class="container reveal">
+      <section class="card profile-card">
+        <p class="kicker">Account settings</p>
+        <h1>Your Profile</h1>
+        <p>Review your account details and change your password here.</p>
+
+        <div class="profile-grid">
+          <div class="profile-meta">
+            <strong>Email</strong>
+            <div id="profile-email" class="meta">Loading...</div>
+          </div>
+          <div class="profile-meta">
+            <strong>Role</strong>
+            <div id="profile-role" class="meta">Loading...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card profile-card">
+        <h2>Change Password</h2>
+        <form id="password-form" class="form-group">
+          <label>Current Password <span class="required">*</span></label>
+          <input type="password" id="current-password" required autocomplete="current-password" />
+
+          <label>New Password <span class="required">*</span></label>
+          <input type="password" id="new-password" required autocomplete="new-password" />
+
+          <label>Confirm New Password <span class="required">*</span></label>
+          <input type="password" id="confirm-password" required autocomplete="new-password" />
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Update Password</button>
+          </div>
+        </form>
+        <div id="profile-message" class="message"></div>
+      </section>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+    <script src="/js/profile.js"></script>
+  </body>
+</html>

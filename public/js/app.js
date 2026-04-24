@@ -17,32 +17,147 @@ function renderList(el, items, htmlMapper) {
   el.innerHTML = items.map((item) => `<li>${htmlMapper(item)}</li>`).join("");
 }
 
-function syncAuthNav() {
-  const loggedIn = Boolean(localStorage.getItem("token") || localStorage.getItem("user"));
-  const logoutLinks = document.querySelectorAll('a[href="/logout.html"]');
-  const dashboardLinks = document.querySelectorAll(
-    'a[href="/student.html"], a[href="/lesson.html"], a[href="/chat.html"], a[href="/reports.html"], a[href="/manager.html"]'
-  );
-  const loginLinks = document.querySelectorAll('a[href="/login.html"]');
-  const signupLinks = document.querySelectorAll('a[href="/signup.html"]');
+function getStoredUser() {
+  const rawUser = localStorage.getItem("user");
+  if (!rawUser) return null;
 
-  logoutLinks.forEach((link) => { link.hidden = !loggedIn; });
-  dashboardLinks.forEach((link) => { link.hidden = !loggedIn; });
-  loginLinks.forEach((link) => { link.hidden = loggedIn; });
-  signupLinks.forEach((link) => { link.hidden = loggedIn; });
+  try {
+    return JSON.parse(rawUser);
+  } catch (_err) {
+    return null;
+  }
 }
 
-function enforceSignedInRestrictions() {
-  const loggedIn = Boolean(localStorage.getItem("token") || localStorage.getItem("user"));
-  const blockedPages = new Set([
-    "/student.html",
-    "/lesson.html",
-    "/chat.html",
-    "/reports.html",
-    "/manager.html"
-  ]);
+function getCurrentRole() {
+  return getStoredUser()?.role || null;
+}
 
-  if (!loggedIn && blockedPages.has(window.location.pathname)) {
+function getNormalizedPath() {
+  return window.location.pathname === "/" ? "/index.html" : window.location.pathname;
+}
+
+function isGuestOnlyPath(pathname) {
+  return pathname === "/login.html" || pathname === "/signup.html";
+}
+
+function isAuthenticatedPath(pathname) {
+  return pathname === "/student.html"
+    || pathname === "/lesson.html"
+    || pathname === "/chat.html"
+    || pathname === "/reports.html"
+    || pathname === "/manager.html"
+    || pathname === "/profile.html"
+    || pathname === "/logout.html";
+}
+
+function isPathAllowedForRole(pathname, role) {
+  const normalizedPath = pathname === "/" ? "/index.html" : pathname;
+
+  if (normalizedPath === "/index.html") return true;
+  if (normalizedPath === "/profile.html") {
+    return role === "STUDENT" || role === "MANAGER";
+  }
+
+  if (normalizedPath === "/logout.html") {
+    return Boolean(role);
+  }
+
+  if (normalizedPath === "/student.html") {
+    return role === "ADMIN";
+  }
+
+  if (normalizedPath === "/lesson.html") {
+    return role === "STUDENT" || role === "MANAGER" || role === "ADMIN";
+  }
+
+  if (normalizedPath === "/chat.html" || normalizedPath === "/reports.html" || normalizedPath === "/manager.html") {
+    return role === "MANAGER" || role === "ADMIN";
+  }
+
+  return true;
+}
+
+function ensureProfileLink(nav, role) {
+  let profileLink = nav.querySelector('a[href="/profile.html"]');
+  const shouldShowProfile = role === "STUDENT" || role === "MANAGER";
+
+  if (!profileLink && shouldShowProfile) {
+    profileLink = document.createElement("a");
+    profileLink.href = "/profile.html";
+    profileLink.textContent = "Profile";
+
+    const logoutLink = nav.querySelector('a[href="/logout.html"]');
+    if (logoutLink && logoutLink.parentNode === nav) {
+      nav.insertBefore(profileLink, logoutLink);
+    } else {
+      nav.appendChild(profileLink);
+    }
+  }
+
+  if (profileLink) {
+    profileLink.hidden = !shouldShowProfile;
+  }
+}
+
+function syncAuthNav() {
+  const role = getCurrentRole();
+  const loggedIn = Boolean(role);
+  const navs = document.querySelectorAll("nav.main-nav");
+
+  navs.forEach((nav) => {
+    ensureProfileLink(nav, role);
+    nav.querySelectorAll("a").forEach((link) => {
+      const href = link.getAttribute("href");
+
+      if (href === "/login.html" || href === "/signup.html") {
+        link.hidden = loggedIn;
+        return;
+      }
+
+      if (href === "/logout.html" || href === "/profile.html") {
+        link.hidden = !loggedIn;
+        return;
+      }
+
+      if (href === "/student.html") {
+        link.hidden = role !== "ADMIN";
+        link.textContent = role === "ADMIN" ? "Users" : link.textContent;
+        return;
+      }
+
+      if (href === "/lesson.html") {
+        link.hidden = !(role === "STUDENT" || role === "MANAGER" || role === "ADMIN");
+        return;
+      }
+
+      if (href === "/chat.html" || href === "/reports.html" || href === "/manager.html") {
+        link.hidden = !(role === "MANAGER" || role === "ADMIN");
+      }
+    });
+  });
+
+  // Hide guest-only calls-to-action in page content (e.g. home hero buttons).
+  const guestCtaLinks = document.querySelectorAll('main a[href="/login.html"], main a[href="/signup.html"]');
+  guestCtaLinks.forEach((link) => {
+    link.hidden = loggedIn;
+  });
+}
+
+function enforceRoleRestrictions() {
+  const role = getCurrentRole();
+  const pathname = getNormalizedPath();
+
+  if (isGuestOnlyPath(pathname) && role) {
+    window.location.replace("/index.html");
+    return true;
+  }
+
+  if (isAuthenticatedPath(pathname) && !role) {
+    window.location.replace("/login.html");
+    return true;
+  }
+
+  if (role && !isPathAllowedForRole(pathname, role)) {
     window.location.replace("/index.html");
     return true;
   }
@@ -120,8 +235,21 @@ async function bootstrapManagerPage() {
 
 async function init() {
   try {
+    const token = localStorage.getItem("token");
+    const cachedUser = getStoredUser();
+
+    if (token && !cachedUser && window.codePilotApi) {
+      try {
+        const me = await window.codePilotApi.getMe();
+        localStorage.setItem("user", JSON.stringify(me.user));
+      } catch (_err) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      }
+    }
+
     syncAuthNav();
-    if (enforceSignedInRestrictions()) return;
+    if (enforceRoleRestrictions()) return;
     await Promise.all([
       bootstrapStudentPage(),
       bootstrapLessonPage(),

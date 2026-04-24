@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 require("dotenv").config();
 
 const app = express();
@@ -11,9 +12,60 @@ const DB_USER = process.env.DB_USER || "root";
 const DB_PASS = process.env.DB_PASS || "";
 const DB_NAME = process.env.DB_NAME || "codepilot";
 const DB_PORT = Number(process.env.DB_PORT || 3306);
+const APP_ADMIN_USERNAME = process.env.APP_ADMIN_USERNAME || "admin@codepilot.com";
+const APP_ADMIN_PASSWORD = process.env.APP_ADMIN_PASSWORD || "admin";
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+const sessions = new Map();
+
+function createSession(user) {
+  const token = crypto.randomUUID();
+  sessions.set(token, {
+    token,
+    userID: user.userID,
+    email: user.email,
+    role: user.role
+  });
+  return token;
+}
+
+function getTokenFromRequest(req) {
+  const authorization = req.headers.authorization || "";
+  if (authorization.startsWith("Bearer ")) {
+    return authorization.slice(7).trim();
+  }
+
+  const headerToken = req.headers["x-auth-token"];
+  if (typeof headerToken === "string" && headerToken.trim()) {
+    return headerToken.trim();
+  }
+
+  return null;
+}
+
+function getSessionFromRequest(req) {
+  const token = getTokenFromRequest(req);
+  if (!token) return null;
+  return sessions.get(token) || null;
+}
+
+function requireAuth(allowedRoles = []) {
+  return (req, res, next) => {
+    const session = getSessionFromRequest(req);
+    if (!session) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (allowedRoles.length > 0 && !allowedRoles.includes(session.role)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    req.session = session;
+    next();
+  };
+}
 
 // MySQL connection pool
 const pool = mysql.createPool({
@@ -57,6 +109,22 @@ app.post("/api/login", async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ error: "email and password required" });
   }
+
+  if (email === APP_ADMIN_USERNAME && password === APP_ADMIN_PASSWORD) {
+    const adminSessionUser = {
+      userID: 0,
+      email: APP_ADMIN_USERNAME,
+      role: "ADMIN"
+    };
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      token: createSession(adminSessionUser),
+      user: adminSessionUser
+    });
+  }
+
   try {
     const conn = await pool.getConnection();
     const [users] = await conn.query("SELECT userID, email, password, role FROM User WHERE email=?", [email]);
@@ -77,6 +145,7 @@ app.post("/api/login", async (req, res) => {
     res.json({
       success: true,
       message: "Login successful",
+      token: createSession(user),
       user: {
         userID: user.userID,
         email: user.email,
@@ -91,10 +160,58 @@ app.post("/api/login", async (req, res) => {
 
 // ===== USERS ENDPOINTS =====
 
-app.get("/api/users", async (_req, res) => {
+app.get("/api/me", requireAuth(), async (req, res) => {
+  res.json({
+    user: {
+      userID: req.session.userID,
+      email: req.session.email,
+      role: req.session.role
+    }
+  });
+});
+
+app.put("/api/me/password", requireAuth(), async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: "currentPassword and newPassword required" });
+  }
+
   try {
     const conn = await pool.getConnection();
-    const [rows] = await conn.query("SELECT * FROM User");
+    const [rows] = await conn.query("SELECT password FROM User WHERE userID=?", [req.session.userID]);
+
+    if (rows.length === 0) {
+      conn.release();
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const passwordMatch = await bcrypt.compare(currentPassword, rows[0].password);
+    if (!passwordMatch) {
+      conn.release();
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await conn.query("UPDATE User SET password=? WHERE userID=?", [hashedPassword, req.session.userID]);
+    conn.release();
+
+    res.json({ success: true, message: "Password updated" });
+  } catch (err) {
+    console.error("PUT /api/me/password:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/logout", requireAuth(), async (req, res) => {
+  sessions.delete(req.session.token);
+  res.json({ success: true, message: "Logged out" });
+});
+
+app.get("/api/users", requireAuth(["ADMIN"]), async (_req, res) => {
+  try {
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query("SELECT userID, email, role, skillLevel, preferredLanguage FROM User");
     conn.release();
     res.json(rows);
   } catch (err) {
@@ -108,12 +225,26 @@ app.post("/api/users", async (req, res) => {
   if (!email || !password || !role) {
     return res.status(400).json({ error: "email, password, and role required" });
   }
+
+  if (role !== "STUDENT" && role !== "MANAGER") {
+    return res.status(400).json({ error: "role must be STUDENT or MANAGER" });
+  }
+
+  const session = getSessionFromRequest(req);
+  if (session && session.role !== "ADMIN") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  if (!session && role !== "STUDENT") {
+    return res.status(403).json({ error: "Only student signups are allowed without an admin session" });
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const conn = await pool.getConnection();
     await conn.query(
       "INSERT INTO User (email, password, role, skillLevel, preferredLanguage) VALUES (?, ?, ?, ?, ?)",
-      [email, hashedPassword, role, skillLevel || null, preferredLanguage || null]
+      [email, hashedPassword, session ? role : "STUDENT", skillLevel || null, preferredLanguage || null]
     );
     conn.release();
     res.json({ success: true, message: "User created" });
@@ -123,15 +254,32 @@ app.post("/api/users", async (req, res) => {
   }
 });
 
-app.put("/api/users/:id", async (req, res) => {
+app.put("/api/users/:id", requireAuth(["ADMIN"]), async (req, res) => {
   const { id } = req.params;
   const { email, password, role, skillLevel, preferredLanguage } = req.body;
+
+  if (role !== "STUDENT" && role !== "MANAGER") {
+    return res.status(400).json({ error: "role must be STUDENT or MANAGER" });
+  }
+
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
     const conn = await pool.getConnection();
+    let finalPassword = password;
+
+    if (typeof password === "string" && password.trim() !== "") {
+      finalPassword = await bcrypt.hash(password, 10);
+    } else {
+      const [existingRows] = await conn.query("SELECT password FROM User WHERE userID=?", [id]);
+      if (existingRows.length === 0) {
+        conn.release();
+        return res.status(404).json({ error: "User not found" });
+      }
+      finalPassword = existingRows[0].password;
+    }
+
     await conn.query(
       "UPDATE User SET email=?, password=?, role=?, skillLevel=?, preferredLanguage=? WHERE userID=?",
-      [email, hashedPassword, role, skillLevel || null, preferredLanguage || null, id]
+      [email, finalPassword, role, skillLevel || null, preferredLanguage || null, id]
     );
     conn.release();
     res.json({ success: true, message: "User updated" });
@@ -141,7 +289,7 @@ app.put("/api/users/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/users/:id", async (req, res) => {
+app.delete("/api/users/:id", requireAuth(["ADMIN"]), async (req, res) => {
   const { id } = req.params;
   try {
     await withTransaction(async (conn) => {
@@ -167,7 +315,7 @@ app.delete("/api/users/:id", async (req, res) => {
 
 // ===== LEARNING PATHS ENDPOINTS =====
 
-app.get("/api/learning-paths", async (_req, res) => {
+app.get("/api/learning-paths", requireAuth(["STUDENT", "MANAGER", "ADMIN"]), async (_req, res) => {
   try {
     const conn = await pool.getConnection();
     const [rows] = await conn.query("SELECT * FROM LearningPath");
@@ -179,7 +327,7 @@ app.get("/api/learning-paths", async (_req, res) => {
   }
 });
 
-app.post("/api/learning-paths", async (req, res) => {
+app.post("/api/learning-paths", requireAuth(["ADMIN"]), async (req, res) => {
   const { pathName, description, difficulty, estimatedHours } = req.body;
   if (!pathName) {
     return res.status(400).json({ error: "pathName required" });
@@ -198,7 +346,7 @@ app.post("/api/learning-paths", async (req, res) => {
   }
 });
 
-app.put("/api/learning-paths/:id", async (req, res) => {
+app.put("/api/learning-paths/:id", requireAuth(["ADMIN"]), async (req, res) => {
   const { id } = req.params;
   const { pathName, description, difficulty, estimatedHours } = req.body;
   try {
@@ -215,7 +363,7 @@ app.put("/api/learning-paths/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/learning-paths/:id", async (req, res) => {
+app.delete("/api/learning-paths/:id", requireAuth(["ADMIN"]), async (req, res) => {
   const { id } = req.params;
   try {
     await withTransaction(async (conn) => {
@@ -252,7 +400,7 @@ app.delete("/api/learning-paths/:id", async (req, res) => {
 
 // ===== LESSONS ENDPOINTS =====
 
-app.get("/api/lessons", async (_req, res) => {
+app.get("/api/lessons", requireAuth(["STUDENT", "MANAGER", "ADMIN"]), async (_req, res) => {
   try {
     const conn = await pool.getConnection();
     const [rows] = await conn.query("SELECT * FROM Lesson");
@@ -264,7 +412,7 @@ app.get("/api/lessons", async (_req, res) => {
   }
 });
 
-app.post("/api/lessons", async (req, res) => {
+app.post("/api/lessons", requireAuth(["ADMIN"]), async (req, res) => {
   const { pathID, title, content } = req.body;
   if (!pathID || !title) {
     return res.status(400).json({ error: "pathID and title required" });
@@ -283,7 +431,7 @@ app.post("/api/lessons", async (req, res) => {
   }
 });
 
-app.put("/api/lessons/:id", async (req, res) => {
+app.put("/api/lessons/:id", requireAuth(["ADMIN"]), async (req, res) => {
   const { id } = req.params;
   const { pathID, title, content } = req.body;
   try {
@@ -300,7 +448,7 @@ app.put("/api/lessons/:id", async (req, res) => {
   }
 });
 
-app.delete("/api/lessons/:id", async (req, res) => {
+app.delete("/api/lessons/:id", requireAuth(["ADMIN"]), async (req, res) => {
   const { id } = req.params;
   try {
     await withTransaction(async (conn) => {
@@ -326,7 +474,7 @@ app.delete("/api/lessons/:id", async (req, res) => {
 
 // ===== CHAT SESSIONS ENDPOINTS =====
 
-app.get("/api/chat-sessions", async (_req, res) => {
+app.get("/api/chat-sessions", requireAuth(["MANAGER", "ADMIN"]), async (_req, res) => {
   try {
     const conn = await pool.getConnection();
     const [rows] = await conn.query("SELECT * FROM AIChatSession");
@@ -340,7 +488,7 @@ app.get("/api/chat-sessions", async (_req, res) => {
 
 // ===== MODERATION FLAGS ENDPOINTS =====
 
-app.get("/api/moderation/flags", async (_req, res) => {
+app.get("/api/moderation/flags", requireAuth(["MANAGER", "ADMIN"]), async (_req, res) => {
   try {
     const conn = await pool.getConnection();
     const [rows] = await conn.query("SELECT * FROM ContentFlag");
@@ -352,7 +500,7 @@ app.get("/api/moderation/flags", async (_req, res) => {
   }
 });
 
-app.put("/api/moderation/flags/:id", async (req, res) => {
+app.put("/api/moderation/flags/:id", requireAuth(["MANAGER", "ADMIN"]), async (req, res) => {
   const { id } = req.params;
   const { status, description } = req.body;
   try {
@@ -371,7 +519,7 @@ app.put("/api/moderation/flags/:id", async (req, res) => {
 
 // ===== REPORTS (joins / aggregation) =====
 
-app.get("/api/reports/student-progress", async (_req, res) => {
+app.get("/api/reports/student-progress", requireAuth(["MANAGER", "ADMIN"]), async (_req, res) => {
   try {
     const conn = await pool.getConnection();
     const [rows] = await conn.query(
@@ -401,7 +549,7 @@ app.get("/api/reports/student-progress", async (_req, res) => {
   }
 });
 
-app.get("/api/reports/path-enrollment", async (_req, res) => {
+app.get("/api/reports/path-enrollment", requireAuth(["MANAGER", "ADMIN"]), async (_req, res) => {
   try {
     const conn = await pool.getConnection();
     const [rows] = await conn.query(
@@ -424,7 +572,14 @@ app.get("*", (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => {
-  console.log(`CodePilot frontend running on http://localhost:${PORT}`);
-  console.log(`[CodePilot] DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}`);
+async function startServer() {
+  app.listen(PORT, () => {
+    console.log(`CodePilot frontend running on http://localhost:${PORT}`);
+    console.log(`[CodePilot] DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Failed to start CodePilot", error);
+  process.exit(1);
 });

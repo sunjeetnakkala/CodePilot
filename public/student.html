@@ -29,7 +29,7 @@
     <main class="container reveal">
       <section class="card">
         <h1>User Management</h1>
-        <p>Create, update, and delete student accounts.</p>
+        <p>Create, update, and delete accounts.</p>
       </section>
 
       <section class="grid two-col">
@@ -77,8 +77,9 @@
           <label>Email <span class="required">*</span></label>
           <input type="email" name="email" id="edit-email" required />
           
-          <label>Password <span class="required">*</span></label>
-          <input type="password" name="password" id="edit-password" required />
+          <label>New Password</label>
+          <input type="password" name="password" id="edit-password" autocomplete="new-password" />
+          <div class="meta">Leave blank to keep the current password.</div>
           
           <label>Role <span class="required">*</span></label>
           <select name="role" id="edit-role" required>

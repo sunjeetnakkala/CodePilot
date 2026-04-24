@@ -40,9 +40,26 @@
     </main>
 
     <script>
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      sessionStorage.clear();
+      (async () => {
+        const token = localStorage.getItem("token");
+
+        if (token) {
+          try {
+            await fetch("/api/logout", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+          } catch (_err) {
+            // Ignore logout network issues and clear local state anyway.
+          }
+        }
+
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        sessionStorage.clear();
+      })();
     </script>
     <script src="/js/app.js"></script>
   </body>

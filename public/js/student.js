@@ -79,7 +79,11 @@ function editUser(userId) {
       .then((users) => {
         const user = users.find((u) => u.userID === userId);
         if (user) {
-          document.getElementById("edit-password").value = user.password || "";
+          const passwordEl = document.getElementById("edit-password");
+          if (passwordEl) {
+            passwordEl.value = "";
+            passwordEl.placeholder = "Leave blank to keep the current password";
+          }
           document.getElementById("edit-role").value = user.role || "STUDENT";
           document.getElementById("edit-skillLevel").value = user.skillLevel || "";
           document.getElementById("edit-preferredLanguage").value = user.preferredLanguage || "";
@@ -155,6 +159,7 @@ async function initStudentPage() {
         });
         showMessage("edit-user-message", "User updated successfully", "success");
         editForm.style.display = "none";
+        editForm.reset();
         await loadUsers();
       } catch (err) {
         showMessage("edit-user-message", "Error updating user: " + err.message, "error");

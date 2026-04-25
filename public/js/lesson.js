@@ -17,9 +17,242 @@ function hideMessage(elementId) {
 
 let editingPathId = null;
 let editingLessonId = null;
+let lessonCatalogState = {
+  paths: [],
+  lessons: [],
+  activeLessonId: null,
+  filterPathId: "all"
+};
 
 function canManageLessons() {
   return typeof getCurrentRole === "function" && getCurrentRole() === "ADMIN";
+}
+
+function canUseLessonWorkspace() {
+  const role = typeof getCurrentRole === "function" ? getCurrentRole() : null;
+  return role === "STUDENT" || role === "MANAGER" || role === "ADMIN";
+}
+
+function getLessonPathName(pathID) {
+  const path = lessonCatalogState.paths.find((item) => item.pathID === pathID);
+  return path ? path.pathName : `Path ${pathID}`;
+}
+
+function getDefaultLessons() {
+  return [
+    {
+      lessonID: 1,
+      pathID: 1,
+      title: "Getting Started with Variables",
+      content:
+        "Welcome to CodePilot. In this lesson, you will learn how variables store information, why naming matters, and how to build small pieces of logic step by step.\n\nExample:\nlet message = 'Hello, CodePilot';",
+      estimatedProgress: 20,
+      difficulty: "Beginner"
+    },
+    {
+      lessonID: 2,
+      pathID: 1,
+      title: "Control Flow Basics",
+      content:
+        "Now we will use if statements and loops to make your code respond to conditions. Think of this as the point where your app starts making decisions.\n\nExample:\nif (score >= 80) {\n  console.log('Strong progress');\n}",
+      estimatedProgress: 45,
+      difficulty: "Beginner"
+    },
+    {
+      lessonID: 3,
+      pathID: 2,
+      title: "Working with Arrays",
+      content:
+        "Arrays help you store ordered collections of data. In the next steps, you will sort, filter, and map the values to build a real workflow.\n\nExample:\nconst lessons = ['Intro', 'Practice', 'Quiz'];",
+      estimatedProgress: 60,
+      difficulty: "Intermediate"
+    },
+    {
+      lessonID: 4,
+      pathID: 2,
+      title: "Practice Challenge",
+      content:
+        "This checkpoint is where you apply what you learned. Read the prompt, inspect the starter idea, and then mark the lesson complete once you are confident.\n\nGoal:\nCreate a function that returns the longest word in a list.",
+      estimatedProgress: 75,
+      difficulty: "Intermediate"
+    }
+  ];
+}
+
+function getDisplayLessons() {
+  const lessons = lessonCatalogState.lessons.length > 0 ? lessonCatalogState.lessons : getDefaultLessons();
+
+  if (lessonCatalogState.filterPathId === "all") {
+    return lessons;
+  }
+
+  return lessons.filter((lesson) => String(lesson.pathID) === String(lessonCatalogState.filterPathId));
+}
+
+function setActiveLesson(lesson) {
+  lessonCatalogState.activeLessonId = lesson.lessonID;
+  renderActiveLesson(lesson);
+  renderLessonCatalog();
+}
+
+function renderActiveLesson(lesson) {
+  const titleEl = document.getElementById("active-lesson-title");
+  const metaEl = document.getElementById("active-lesson-meta");
+  const contentEl = document.getElementById("lesson-content");
+  const progressPillEl = document.getElementById("lesson-progress-pill");
+  const progressFillEl = document.getElementById("lesson-progress-fill");
+  const completeBtn = document.getElementById("mark-complete-btn");
+  const nextBtn = document.getElementById("next-lesson-btn");
+
+  if (!lesson) return;
+
+  const progress = lesson.estimatedProgress ?? Math.min(90, 20 + (lesson.lessonID % 5) * 15);
+
+  if (titleEl) titleEl.textContent = lesson.title;
+  if (metaEl) {
+    metaEl.textContent = `${getLessonPathName(lesson.pathID)} · ${lesson.difficulty || "Self-paced"}`;
+  }
+  if (contentEl) contentEl.textContent = lesson.content || "This lesson is ready. Add lesson content from the admin tools or use the built-in training copy.";
+  if (progressPillEl) progressPillEl.textContent = `${progress}% complete`;
+  if (progressFillEl) progressFillEl.style.width = `${progress}%`;
+  if (completeBtn) completeBtn.disabled = false;
+  if (nextBtn) nextBtn.disabled = false;
+}
+
+function renderLessonCatalog() {
+  const catalogEl = document.getElementById("lesson-catalog");
+  const filterEl = document.getElementById("path-filter");
+
+  if (!catalogEl) return;
+
+  const lessons = getDisplayLessons();
+
+  catalogEl.innerHTML = lessons
+    .map((lesson) => {
+      const isActive = lessonCatalogState.activeLessonId === lesson.lessonID;
+      const progress = lesson.estimatedProgress ?? Math.min(90, 20 + (lesson.lessonID % 5) * 15);
+
+      return `
+        <li>
+          <button class="lesson-card${isActive ? " active" : ""}" type="button" data-lesson-id="${lesson.lessonID}">
+            <div class="lesson-card-meta">
+              <span>${getLessonPathName(lesson.pathID)}</span>
+              <span>${lesson.difficulty || "Self-paced"}</span>
+              <span>${progress}% complete</span>
+            </div>
+            <strong>${lesson.title}</strong>
+            <div class="meta">${(lesson.content || "Lesson preview unavailable.").substring(0, 120)}</div>
+          </button>
+        </li>
+      `;
+    })
+    .join("");
+
+  catalogEl.querySelectorAll("[data-lesson-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const lessonId = parseInt(button.getAttribute("data-lesson-id"), 10);
+      const lesson = lessons.find((item) => item.lessonID === lessonId);
+      if (lesson) setActiveLesson(lesson);
+    });
+  });
+
+  if (filterEl) {
+    const options = ['<option value="all">All paths</option>']
+      .concat(
+        lessonCatalogState.paths.map(
+          (path) => `<option value="${path.pathID}">${path.pathName}</option>`
+        )
+      )
+      .join("");
+
+    filterEl.innerHTML = options;
+    filterEl.value = lessonCatalogState.filterPathId;
+  }
+}
+
+function renderLessonWorkspace() {
+  const shell = document.getElementById("student-lesson-shell");
+  if (!shell) return;
+
+  const lessons = getDisplayLessons();
+  if (lessons.length > 0 && !lessonCatalogState.activeLessonId) {
+    setActiveLesson(lessons[0]);
+  } else if (lessons.length > 0) {
+    const activeLesson = lessons.find((lesson) => lesson.lessonID === lessonCatalogState.activeLessonId) || lessons[0];
+    renderActiveLesson(activeLesson);
+  }
+
+  renderLessonCatalog();
+}
+
+function updateLessonWorkspaceControls() {
+  const refreshBtn = document.getElementById("refresh-learning-btn");
+  const filterEl = document.getElementById("path-filter");
+  const completeBtn = document.getElementById("mark-complete-btn");
+  const nextBtn = document.getElementById("next-lesson-btn");
+
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = "true";
+    refreshBtn.addEventListener("click", async () => {
+      await loadLearningCatalog();
+    });
+  }
+
+  if (filterEl && !filterEl.dataset.bound) {
+    filterEl.dataset.bound = "true";
+    filterEl.addEventListener("change", () => {
+      lessonCatalogState.filterPathId = filterEl.value;
+      lessonCatalogState.activeLessonId = null;
+      renderLessonWorkspace();
+    });
+  }
+
+  if (completeBtn && !completeBtn.dataset.bound) {
+    completeBtn.dataset.bound = "true";
+    completeBtn.addEventListener("click", () => {
+      const activeLesson = getDisplayLessons().find((lesson) => lesson.lessonID === lessonCatalogState.activeLessonId);
+      if (!activeLesson) return;
+
+      const progress = Math.min(100, (activeLesson.estimatedProgress ?? 40) + 20);
+      activeLesson.estimatedProgress = progress;
+      renderActiveLesson(activeLesson);
+      renderLessonCatalog();
+      showMessage("student-lesson-message", `${activeLesson.title} marked as complete for this session.`, "success");
+    });
+  }
+
+  if (nextBtn && !nextBtn.dataset.bound) {
+    nextBtn.dataset.bound = "true";
+    nextBtn.addEventListener("click", () => {
+      const lessons = getDisplayLessons();
+      if (lessons.length === 0) return;
+
+      const currentIndex = Math.max(
+        0,
+        lessons.findIndex((lesson) => lesson.lessonID === lessonCatalogState.activeLessonId)
+      );
+      const nextLesson = lessons[(currentIndex + 1) % lessons.length];
+      setActiveLesson(nextLesson);
+      showMessage("student-lesson-message", `Switched to ${nextLesson.title}.`, "success");
+    });
+  }
+}
+
+async function loadLearningCatalog() {
+  try {
+    const [paths, lessons] = await Promise.all([
+      window.codePilotApi.getLearningPaths(),
+      window.codePilotApi.getLessons()
+    ]);
+
+    lessonCatalogState.paths = paths;
+    lessonCatalogState.lessons = lessons;
+
+    renderLessonWorkspace();
+    updateLessonWorkspaceControls();
+  } catch (err) {
+    showMessage("student-lesson-message", "Error loading lessons: " + err.message, "error");
+  }
 }
 
 // ===== LEARNING PATHS =====
@@ -180,6 +413,8 @@ async function populatePathSelect() {
 // ===== INIT =====
 
 async function initLessonPage() {
+  const studentShell = document.getElementById("student-lesson-shell");
+  const adminShell = document.getElementById("admin-lesson-shell");
   const togglePathBtn = document.getElementById("toggle-path-form-btn");
   const toggleLessonBtn = document.getElementById("toggle-lesson-form-btn");
   const pathForm = document.getElementById("path-form");
@@ -189,6 +424,15 @@ async function initLessonPage() {
   const refreshPathsBtn = document.getElementById("refresh-paths-btn");
   const refreshLessonsBtn = document.getElementById("refresh-lessons-btn");
   const canManage = canManageLessons();
+  const canUseWorkspace = canUseLessonWorkspace();
+
+  if (studentShell) {
+    studentShell.hidden = !canUseWorkspace;
+  }
+
+  if (adminShell) {
+    adminShell.hidden = !canManage;
+  }
 
   if (!canManage) {
     if (togglePathBtn) togglePathBtn.hidden = true;
@@ -326,6 +570,10 @@ async function initLessonPage() {
 
   if (refreshLessonsBtn) {
     refreshLessonsBtn.addEventListener("click", loadLessons);
+  }
+
+  if (canUseWorkspace) {
+    await loadLearningCatalog();
   }
 
   await populatePathSelect();

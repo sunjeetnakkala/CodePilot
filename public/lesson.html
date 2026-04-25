@@ -28,84 +28,260 @@
 
     <main class="container reveal">
       <section class="card">
-        <h1>Learning Paths & Lessons</h1>
-        <p>Manage learning paths and their associated lessons.</p>
+        <h1>Lessons</h1>
+        <p>Browse learning paths, select a lesson, and track progress through the workspace.</p>
       </section>
 
-      <!-- LEARNING PATHS SECTION -->
-      <section class="card">
-        <h2>Learning Paths</h2>
-        <div class="filter-actions">
-          <button id="refresh-paths-btn" class="btn btn-ghost">Refresh</button>
-          <button id="toggle-path-form-btn" class="btn btn-primary">+ Add Path</button>
-        </div>
-        <ul id="path-list" class="list"></ul>
-      </section>
-
-      <section class="card">
-        <h2>Add/Edit Learning Path</h2>
-        <form id="path-form" class="form-group" style="display: none;">
-          <input type="hidden" name="pathID" id="form-pathID" />
-          
-          <label>Path Name <span class="required">*</span></label>
-          <input type="text" name="pathName" id="form-pathName" required />
-          
-          <label>Description</label>
-          <textarea name="description" id="form-description" rows="3"></textarea>
-          
-          <label>Difficulty</label>
-          <select name="difficulty" id="form-difficulty">
-            <option value="">Select difficulty</option>
-            <option value="Beginner">Beginner</option>
-            <option value="Intermediate">Intermediate</option>
-            <option value="Advanced">Advanced</option>
-          </select>
-          
-          <label>Estimated Hours</label>
-          <input type="number" name="estimatedHours" id="form-estimatedHours" />
-          
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="path-submit-btn">Save Path</button>
-            <button type="button" id="cancel-path-btn" class="btn btn-ghost">Cancel</button>
+      <section id="student-lesson-shell" class="grid two-col">
+        <article class="card lesson-library-card">
+          <div class="filter-actions" style="justify-content: space-between; gap: 12px; align-items: center;">
+            <div>
+              <h2 style="margin-bottom: 4px;">Lesson Library</h2>
+              <p class="muted" style="margin: 0;">Pick a path and launch a lesson.</p>
+            </div>
+            <button id="refresh-learning-btn" class="btn btn-ghost">Refresh</button>
           </div>
-        </form>
-        <div id="path-message" class="message"></div>
-      </section>
 
-      <!-- LESSONS SECTION -->
-      <section class="card">
-        <h2>Lessons</h2>
-        <div class="filter-actions">
-          <button id="refresh-lessons-btn" class="btn btn-ghost">Refresh</button>
-          <button id="toggle-lesson-form-btn" class="btn btn-primary">+ Add Lesson</button>
-        </div>
-        <ul id="lesson-list" class="list"></ul>
-      </section>
-
-      <section class="card">
-        <h2>Add/Edit Lesson</h2>
-        <form id="lesson-form" class="form-group" style="display: none;">
-          <input type="hidden" name="lessonID" id="form-lessonID" />
-          
-          <label>Path <span class="required">*</span></label>
-          <select name="pathID" id="form-lessonPathID" required>
-            <option value="">Select a learning path</option>
-          </select>
-          
-          <label>Lesson Title <span class="required">*</span></label>
-          <input type="text" name="title" id="form-lessonTitle" required />
-          
-          <label>Content</label>
-          <textarea name="content" id="form-lessonContent" rows="4"></textarea>
-          
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="lesson-submit-btn">Save Lesson</button>
-            <button type="button" id="cancel-lesson-btn" class="btn btn-ghost">Cancel</button>
+          <div class="form-group" style="margin-top: 18px;">
+            <label for="path-filter">Learning Path</label>
+            <select id="path-filter">
+              <option value="all">All paths</option>
+            </select>
           </div>
-        </form>
-        <div id="lesson-message" class="message"></div>
+
+          <ul id="lesson-catalog" class="list"></ul>
+        </article>
+
+        <article class="card lesson-workspace-card">
+          <div class="lesson-panel">
+            <div class="lesson-panel-header">
+              <div>
+                <p class="kicker">Current lesson</p>
+                <h2 id="active-lesson-title">Select a lesson</h2>
+                <p id="active-lesson-meta" class="muted">Choose a lesson from the library to begin.</p>
+              </div>
+              <div class="progress-pill" id="lesson-progress-pill">0% complete</div>
+            </div>
+
+            <div class="lesson-progress-track">
+              <div class="lesson-progress-fill" id="lesson-progress-fill"></div>
+            </div>
+
+            <div class="lesson-content-grid">
+              <section class="lesson-section card soft-card">
+                <h3>Lesson Notes</h3>
+                <div id="lesson-content" class="lesson-content-body muted">
+                  Pick a lesson to load the content panel.
+                </div>
+              </section>
+
+              <section class="lesson-section card soft-card">
+                <h3>Checkpoint</h3>
+                <ul class="checklist">
+                  <li><span></span> Read the overview</li>
+                  <li><span></span> Review the example</li>
+                  <li><span></span> Complete the practice step</li>
+                  <li><span></span> Mark the lesson complete</li>
+                </ul>
+                <div class="form-actions" style="margin-top: 18px;">
+                  <button id="mark-complete-btn" class="btn btn-primary" disabled>Mark Complete</button>
+                  <button id="next-lesson-btn" class="btn btn-ghost" disabled>Next Lesson</button>
+                </div>
+              </section>
+            </div>
+          </div>
+          <div id="student-lesson-message" class="message"></div>
+        </article>
+      </section>
+
+      <section id="admin-lesson-shell">
+        <section class="card">
+          <h2>Learning Paths</h2>
+          <div class="filter-actions">
+            <button id="refresh-paths-btn" class="btn btn-ghost">Refresh</button>
+            <button id="toggle-path-form-btn" class="btn btn-primary">+ Add Path</button>
+          </div>
+          <ul id="path-list" class="list"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Add/Edit Learning Path</h2>
+          <form id="path-form" class="form-group" style="display: none;">
+            <input type="hidden" name="pathID" id="form-pathID" />
+            
+            <label>Path Name <span class="required">*</span></label>
+            <input type="text" name="pathName" id="form-pathName" required />
+            
+            <label>Description</label>
+            <textarea name="description" id="form-description" rows="3"></textarea>
+            
+            <label>Difficulty</label>
+            <select name="difficulty" id="form-difficulty">
+              <option value="">Select difficulty</option>
+              <option value="Beginner">Beginner</option>
+              <option value="Intermediate">Intermediate</option>
+              <option value="Advanced">Advanced</option>
+            </select>
+            
+            <label>Estimated Hours</label>
+            <input type="number" name="estimatedHours" id="form-estimatedHours" />
+            
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="path-submit-btn">Save Path</button>
+              <button type="button" id="cancel-path-btn" class="btn btn-ghost">Cancel</button>
+            </div>
+          </form>
+          <div id="path-message" class="message"></div>
+        </section>
+
+        <section class="card">
+          <h2>Lessons</h2>
+          <div class="filter-actions">
+            <button id="refresh-lessons-btn" class="btn btn-ghost">Refresh</button>
+            <button id="toggle-lesson-form-btn" class="btn btn-primary">+ Add Lesson</button>
+          </div>
+          <ul id="lesson-list" class="list"></ul>
+        </section>
+
+        <section class="card">
+          <h2>Add/Edit Lesson</h2>
+          <form id="lesson-form" class="form-group" style="display: none;">
+            <input type="hidden" name="lessonID" id="form-lessonID" />
+            
+            <label>Path <span class="required">*</span></label>
+            <select name="pathID" id="form-lessonPathID" required>
+              <option value="">Select a learning path</option>
+            </select>
+            
+            <label>Lesson Title <span class="required">*</span></label>
+            <input type="text" name="title" id="form-lessonTitle" required />
+            
+            <label>Content</label>
+            <textarea name="content" id="form-lessonContent" rows="4"></textarea>
+            
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="lesson-submit-btn">Save Lesson</button>
+              <button type="button" id="cancel-lesson-btn" class="btn btn-ghost">Cancel</button>
+            </div>
+          </form>
+          <div id="lesson-message" class="message"></div>
+        </section>
       </section>
     </main>
+
+    <style>
+      .lesson-library-card,
+      .lesson-workspace-card {
+        min-height: 640px;
+      }
+
+      .lesson-panel {
+        display: grid;
+        gap: 18px;
+      }
+
+      .lesson-panel-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+      }
+
+      .progress-pill {
+        align-self: flex-start;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(96, 165, 250, 0.12);
+        color: #93c5fd;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .lesson-progress-track {
+        height: 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+
+      .lesson-progress-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #60a5fa, #34d399);
+        transition: width 0.25s ease;
+      }
+
+      .lesson-content-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+      }
+
+      .soft-card {
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .lesson-content-body {
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+
+      .checklist {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .checklist li {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .checklist li span {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.25);
+        flex: 0 0 auto;
+      }
+
+      .lesson-card {
+        display: grid;
+        gap: 8px;
+        padding: 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+      }
+
+      .lesson-card.active {
+        border-color: rgba(96, 165, 250, 0.6);
+        box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.18) inset;
+      }
+
+      .lesson-card .lesson-card-meta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 960px) {
+        .lesson-content-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .lesson-panel-header {
+          flex-direction: column;
+        }
+      }
+    </style>
 
     <script src="/js/api.js"></script>
     <script src="/js/app.js"></script>

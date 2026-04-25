@@ -29,25 +29,204 @@
     <main class="container reveal">
       <section class="card">
         <h1>AI Chat Assistant</h1>
-        <p>Session-based support tied to user, lesson, and knowledge base entries.</p>
+        <p>Managers can review conversations, monitor support activity, and follow along with active lesson help sessions.</p>
       </section>
 
-      <section class="grid two-col">
-        <article class="card">
-          <h2>Sessions</h2>
-          <ul id="chat-session-list" class="list"></ul>
+      <section id="chat-workspace" class="grid three-col chat-shell">
+        <article class="card chat-sidebar">
+          <div class="chat-card-head">
+            <div>
+              <p class="kicker">Active sessions</p>
+              <h2 style="margin-bottom: 0;">Conversation Queue</h2>
+            </div>
+            <button id="refresh-chat-btn" class="btn btn-ghost">Refresh</button>
+          </div>
+          <p class="muted">Select a student session to review or continue the thread.</p>
+          <ul id="chat-session-list" class="list chat-session-list"></ul>
         </article>
+
         <article class="card chat-window">
-          <h2>Message Thread</h2>
-          <div class="mock-panel">
-            <p><strong>Student:</strong> What is a variable?</p>
-            <p><strong>AI:</strong> It is a named storage location in memory.</p>
+          <div class="chat-card-head">
+            <div>
+              <p class="kicker">Current thread</p>
+              <h2 id="chat-thread-title" style="margin-bottom: 0;">Select a session</h2>
+              <p id="chat-thread-meta" class="muted">Conversation details appear here.</p>
+            </div>
+            <div class="chat-status-pill" id="chat-status-pill">Idle</div>
+          </div>
+
+          <div class="chat-thread" id="chat-thread"></div>
+        </article>
+
+        <article class="card chat-inspector">
+          <p class="kicker">Session context</p>
+          <h2>Lesson Snapshot</h2>
+          <div class="chat-context-grid">
+            <div>
+              <div class="meta-label">User</div>
+              <div id="chat-user-value" class="meta">Waiting for a session...</div>
+            </div>
+            <div>
+              <div class="meta-label">Lesson</div>
+              <div id="chat-lesson-value" class="meta">Waiting for a session...</div>
+            </div>
+            <div>
+              <div class="meta-label">Knowledge Base</div>
+              <div id="chat-kb-value" class="meta">Waiting for a session...</div>
+            </div>
           </div>
         </article>
       </section>
+
+      <div id="chat-message" class="message"></div>
     </main>
+
+    <style>
+      .chat-shell {
+        align-items: stretch;
+      }
+
+      .chat-sidebar,
+      .chat-window,
+      .chat-inspector {
+        min-height: 660px;
+      }
+
+      .chat-card-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+
+      .chat-session-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .chat-session-btn {
+        width: 100%;
+        text-align: left;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .chat-session-btn.active {
+        border-color: rgba(96, 165, 250, 0.6);
+        background: rgba(96, 165, 250, 0.08);
+      }
+
+      .chat-session-btn .session-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .chat-status-pill {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(52, 211, 153, 0.12);
+        color: #86efac;
+        white-space: nowrap;
+        font-weight: 700;
+      }
+
+      .chat-thread {
+        min-height: 420px;
+        max-height: 420px;
+        overflow: auto;
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        display: grid;
+        gap: 14px;
+      }
+
+      .chat-bubble {
+        max-width: 88%;
+        padding: 14px 16px;
+        border-radius: 18px;
+        line-height: 1.6;
+      }
+
+      .chat-bubble.user {
+        margin-left: auto;
+        background: rgba(96, 165, 250, 0.14);
+        border: 1px solid rgba(96, 165, 250, 0.22);
+      }
+
+      .chat-bubble.ai {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .chat-bubble .bubble-meta {
+        margin-top: 8px;
+        font-size: 0.84rem;
+        color: var(--muted);
+      }
+
+      .quick-prompts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 14px 0;
+      }
+
+      .prompt-chip {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: inherit;
+        border-radius: 999px;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+
+      .chat-context-grid {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .meta-label {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      .soft-card {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      @media (max-width: 1100px) {
+        .chat-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .chat-sidebar,
+        .chat-window,
+        .chat-inspector {
+          min-height: auto;
+        }
+      }
+    </style>
 
     <script src="/js/api.js"></script>
     <script src="/js/app.js"></script>
+    <script src="/js/chat.js"></script>
   </body>
 </html>

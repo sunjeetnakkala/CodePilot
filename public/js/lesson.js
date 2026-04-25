@@ -23,6 +23,35 @@ let lessonCatalogState = {
   activeLessonId: null,
   filterPathId: "all"
 };
+const LESSON_HELP_STORAGE_KEY = "codepilot.lessonHelpThreads.v1";
+const lessonHelpState = {
+  threads: {},
+  activeLessonId: null
+};
+
+const lessonHelpStarterThreads = {
+  1: [
+    {
+      role: "ai",
+      text: "Start by reading the lesson goal, then tell me which part feels unclear. I’ll keep it short and practical.",
+      at: "09:10"
+    }
+  ],
+  2: [
+    {
+      role: "ai",
+      text: "If you want a hint, ask about one condition or one loop at a time. That keeps the problem manageable.",
+      at: "09:14"
+    }
+  ],
+  3: [
+    {
+      role: "ai",
+      text: "Think about arrays as ordered lists. You can always inspect one element first, then expand from there.",
+      at: "09:20"
+    }
+  ]
+};
 
 function canManageLessons() {
   return typeof getCurrentRole === "function" && getCurrentRole() === "ADMIN";
@@ -31,6 +60,11 @@ function canManageLessons() {
 function canUseLessonWorkspace() {
   const role = typeof getCurrentRole === "function" ? getCurrentRole() : null;
   return role === "STUDENT" || role === "MANAGER" || role === "ADMIN";
+}
+
+function canUseLessonHelp() {
+  const role = typeof getCurrentRole === "function" ? getCurrentRole() : null;
+  return role === "STUDENT" || role === "ADMIN";
 }
 
 function getLessonPathName(pathID) {
@@ -91,8 +125,165 @@ function getDisplayLessons() {
 
 function setActiveLesson(lesson) {
   lessonCatalogState.activeLessonId = lesson.lessonID;
+  lessonHelpState.activeLessonId = lesson.lessonID;
   renderActiveLesson(lesson);
   renderLessonCatalog();
+}
+
+function readStoredLessonHelpThreads() {
+  try {
+    const raw = localStorage.getItem(LESSON_HELP_STORAGE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) || {};
+  } catch (_err) {
+    return {};
+  }
+}
+
+function saveStoredLessonHelpThreads() {
+  localStorage.setItem(LESSON_HELP_STORAGE_KEY, JSON.stringify(lessonHelpState.threads));
+}
+
+function getLessonHelpThread(lessonId) {
+  if (!lessonHelpState.threads[lessonId]) {
+    lessonHelpState.threads[lessonId] = lessonHelpStarterThreads[lessonId]
+      ? [...lessonHelpStarterThreads[lessonId]]
+      : [
+          {
+            role: "ai",
+            text: "Ask a question about the current lesson and I’ll give you a hint, example, or simple explanation.",
+            at: "09:00"
+          }
+        ];
+  }
+
+  return lessonHelpState.threads[lessonId];
+}
+
+function lessonHelpResponse(text) {
+  const lower = text.toLowerCase();
+
+  if (lower.includes("variable")) {
+    return "A variable is a named place to store a value. It helps your code remember something you want to reuse.";
+  }
+
+  if (lower.includes("array")) {
+    return "An array is a list of values in order. Start by looking at one item, then decide how you want to transform it.";
+  }
+
+  if (lower.includes("loop")) {
+    return "A loop repeats code until a condition changes. The easiest way to debug one is to trace a single pass first.";
+  }
+
+  return "Break the problem into one tiny action. Then test that piece before moving on to the next step.";
+}
+
+function formatLessonHelpTime(date = new Date()) {
+  return new Intl.DateTimeFormat([], {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function renderLessonHelpThread(lesson) {
+  const threadEl = document.getElementById("lesson-help-thread");
+  const titleEl = document.getElementById("lesson-help-title");
+  const metaEl = document.getElementById("lesson-help-meta");
+  const statusEl = document.getElementById("lesson-help-status");
+
+  if (!threadEl || !lesson || !canUseLessonHelp()) return;
+
+  if (titleEl) titleEl.textContent = `Ask about: ${lesson.title}`;
+  if (metaEl) metaEl.textContent = `${getLessonPathName(lesson.pathID)} · AI help is available inside the lesson workspace.`;
+  if (statusEl) statusEl.textContent = `Lesson ${lesson.lessonID}`;
+
+  const thread = getLessonHelpThread(lesson.lessonID);
+  threadEl.innerHTML = thread
+    .map(
+      (message) => `
+        <div class="chat-bubble ${message.role}">
+          <div>${message.text}</div>
+        </div>
+      `
+    )
+    .join("");
+
+  threadEl.scrollTop = threadEl.scrollHeight;
+}
+
+function appendLessonHelpMessage(role, text) {
+  if (!canUseLessonHelp()) return;
+
+  const lesson = lessonCatalogState.lessons.find((item) => item.lessonID === lessonCatalogState.activeLessonId) || getDisplayLessons()[0];
+  if (!lesson) return;
+
+  const thread = getLessonHelpThread(lesson.lessonID);
+  thread.push({
+    role,
+    text,
+    at: formatLessonHelpTime()
+  });
+  saveStoredLessonHelpThreads();
+  renderLessonHelpThread(lesson);
+}
+
+function clearLessonHelpThread() {
+  if (!canUseLessonHelp()) return;
+
+  const lesson = lessonCatalogState.lessons.find((item) => item.lessonID === lessonCatalogState.activeLessonId) || getDisplayLessons()[0];
+  if (!lesson) return;
+
+  lessonHelpState.threads[lesson.lessonID] = [
+    {
+      role: "ai",
+      text: "Thread cleared. Ask the next question whenever you’re ready.",
+      at: formatLessonHelpTime()
+    }
+  ];
+  saveStoredLessonHelpThreads();
+  renderLessonHelpThread(lesson);
+}
+
+function updateLessonHelpControls() {
+  if (!canUseLessonHelp()) return;
+
+  const form = document.getElementById("lesson-help-form");
+  const input = document.getElementById("lesson-help-input");
+  const clearBtn = document.getElementById("lesson-help-clear-btn");
+  const promptButtons = document.querySelectorAll("[data-lesson-help-prompt]");
+
+  if (form && !form.dataset.bound) {
+    form.dataset.bound = "true";
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const value = input.value.trim();
+      if (!value) return;
+
+      appendLessonHelpMessage("user", value);
+      input.value = "";
+
+      window.setTimeout(() => {
+        appendLessonHelpMessage("ai", lessonHelpResponse(value));
+      }, 250);
+    });
+  }
+
+  if (clearBtn && !clearBtn.dataset.bound) {
+    clearBtn.dataset.bound = "true";
+    clearBtn.addEventListener("click", clearLessonHelpThread);
+  }
+
+  promptButtons.forEach((button) => {
+    if (button.dataset.bound) return;
+    button.dataset.bound = "true";
+    button.addEventListener("click", () => {
+      if (input) {
+        input.value = button.getAttribute("data-lesson-help-prompt") || "";
+        input.focus();
+      }
+    });
+  });
 }
 
 function renderActiveLesson(lesson) {
@@ -117,6 +308,9 @@ function renderActiveLesson(lesson) {
   if (progressFillEl) progressFillEl.style.width = `${progress}%`;
   if (completeBtn) completeBtn.disabled = false;
   if (nextBtn) nextBtn.disabled = false;
+
+  renderLessonHelpThread(lesson);
+  updateLessonHelpControls();
 }
 
 function renderLessonCatalog() {
@@ -415,6 +609,7 @@ async function populatePathSelect() {
 async function initLessonPage() {
   const studentShell = document.getElementById("student-lesson-shell");
   const adminShell = document.getElementById("admin-lesson-shell");
+  const lessonHelpShell = document.getElementById("lesson-help-shell");
   const togglePathBtn = document.getElementById("toggle-path-form-btn");
   const toggleLessonBtn = document.getElementById("toggle-lesson-form-btn");
   const pathForm = document.getElementById("path-form");
@@ -425,9 +620,14 @@ async function initLessonPage() {
   const refreshLessonsBtn = document.getElementById("refresh-lessons-btn");
   const canManage = canManageLessons();
   const canUseWorkspace = canUseLessonWorkspace();
+  const canUseHelp = canUseLessonHelp();
 
   if (studentShell) {
     studentShell.hidden = !canUseWorkspace;
+  }
+
+  if (lessonHelpShell) {
+    lessonHelpShell.hidden = !canUseHelp;
   }
 
   if (adminShell) {
@@ -573,6 +773,7 @@ async function initLessonPage() {
   }
 
   if (canUseWorkspace) {
+    lessonHelpState.threads = readStoredLessonHelpThreads();
     await loadLearningCatalog();
   }
 

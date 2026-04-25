@@ -203,6 +203,8 @@ async function bootstrapLessonPage() {
 }
 
 async function bootstrapChatPage() {
+  if (document.getElementById("chat-workspace")) return;
+
   const sessionListEl = document.getElementById("chat-session-list");
   if (!sessionListEl || !window.codePilotApi) return;
 

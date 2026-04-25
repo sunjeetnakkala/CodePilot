@@ -89,6 +89,33 @@
                 </div>
               </section>
             </div>
+
+            <section id="lesson-help-shell" class="lesson-chat card soft-card">
+              <div class="chat-card-head">
+                <div>
+                  <p class="kicker">AI help</p>
+                  <h3 id="lesson-help-title" style="margin-bottom: 0;">Ask a question about this lesson</h3>
+                  <p id="lesson-help-meta" class="muted">Select a lesson to start a help thread.</p>
+                </div>
+                <div class="chat-status-pill" id="lesson-help-status">Ready</div>
+              </div>
+
+              <div class="chat-thread lesson-help-thread" id="lesson-help-thread"></div>
+
+              <div class="quick-prompts lesson-help-prompts">
+                <button class="prompt-chip" type="button" data-lesson-help-prompt="Explain the core idea in simple terms.">Explain simply</button>
+                <button class="prompt-chip" type="button" data-lesson-help-prompt="Give me a hint instead of the full answer.">Give a hint</button>
+                <button class="prompt-chip" type="button" data-lesson-help-prompt="Show me a short example.">Show example</button>
+              </div>
+
+              <form id="lesson-help-form" class="chat-composer">
+                <textarea id="lesson-help-input" rows="3" placeholder="Ask the AI for help with the current lesson..."></textarea>
+                <div class="form-actions">
+                  <button type="button" id="lesson-help-clear-btn" class="btn btn-ghost">Clear Thread</button>
+                  <button type="submit" class="btn btn-primary">Send</button>
+                </div>
+              </form>
+            </section>
           </div>
           <div id="student-lesson-message" class="message"></div>
         </article>
@@ -225,6 +252,19 @@
       .lesson-content-body {
         line-height: 1.7;
         white-space: pre-wrap;
+      }
+
+      .lesson-chat {
+        margin-top: 18px;
+      }
+
+      .lesson-help-thread {
+        max-height: 300px;
+        min-height: 300px;
+      }
+
+      .lesson-help-prompts {
+        margin-top: 14px;
       }
 
       .checklist {
